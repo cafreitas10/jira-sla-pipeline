@@ -1,0 +1,62 @@
+venv/
+.env
+__pycache__/
+*.pyc
+data/
+.vscode/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+venv.bak/
+env/
+/.idea/
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (keep directory structure but ignore files)
+data/bronze/*.json
+data/silver/*.parquet
+data/gold/*.csv
+
+# Logs
+*.log

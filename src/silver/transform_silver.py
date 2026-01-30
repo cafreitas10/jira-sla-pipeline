@@ -5,6 +5,7 @@ This module reads raw JSON from bronze layer, parses nested structures,
 flattens assignee and timestamp arrays, and calculates SLA-related metrics.
 """
 
+import datetime
 import os
 import pandas as pd
 import logging
@@ -57,35 +58,58 @@ def parse_and_flatten_issues(data):
 
         issues_array = data['issues']
 
-        # Flatten nested structures
-        df_issues = pd.json_normalize(
-            issues_array,
-            record_path=['assignee'],
-            meta=[
-                'id',
-                'issue_type',
-                'status',
-                'priority',
-                ['timestamps', 0, 'created_at'],
-                ['timestamps', 0, 'resolved_at']
-            ],
-            errors='ignore'
-        )
+        # Flatten nested structures without using pd.json_normalize
+        rows = []
+        for issue in issues_array:
+            issue_id = issue.get('id')
+            issue_type = issue.get('issue_type')
+            status = issue.get('status')
+            priority = issue.get('priority')
 
-        # Rename columns following naming convention
-        df_issues.columns = [
-            'assignee_id',
-            'assignee_name',
-            'assignee_email',
-            'issue_id',
-            'issue_type',
-            'status',
-            'priority',
-            'created_at',
-            'resolved_at'
-        ]
+            # Timestamps: use first element if present
+            created_at = None
+            resolved_at = None
+            timestamps = issue.get('timestamps') or []
+            if isinstance(timestamps, list) and len(timestamps) > 0:
+                ts0 = timestamps[0] or {}
+                created_at = ts0.get('created_at')
+                resolved_at = ts0.get('resolved_at')
 
-        # Reorder columns
+            assignees = issue.get('assignee') or []
+            if not assignees:
+                # preserve issues with no assignee as a single row with null assignee fields
+                rows.append({
+                    'issue_id': issue_id,
+                    'issue_type': issue_type,
+                    'status': status,
+                    'priority': priority,
+                    'assignee_id': None,
+                    'assignee_name': None,
+                    'assignee_email': None,
+                    'created_at': created_at,
+                    'resolved_at': resolved_at
+                })
+            else:
+                for a in assignees:
+                    rows.append({
+                        'issue_id': issue_id,
+                        'issue_type': issue_type,
+                        'status': status,
+                        'priority': priority,
+                        'assignee_id': a.get('id'),
+                        'assignee_name': a.get('name'),
+                        'assignee_email': a.get('email'),
+                        'created_at': created_at,
+                        'resolved_at': resolved_at
+                    })
+
+        if not rows:
+            logger.error("No rows created during flattening")
+            return pd.DataFrame()
+
+        df_issues = pd.DataFrame(rows)
+
+        # Ensure column order follows naming convention
         df_issues = df_issues[[
             'issue_id',
             'issue_type',
@@ -163,6 +187,53 @@ def add_sla_expected_hours(df_issues, sla_config=None):
         return df_issues
 
 
+def validate_and_filter_types(df_issues):
+    """
+    Validate and filter rows with incorrect types or invalid values.
+
+    - Coerce `created_at` and `resolved_at` to datetimes (invalid -> NaT)
+    - Ensures `issue_id` and `priority` are present and valid
+    - Rejects rows that fail validation and saves them for audit
+
+    Returns:
+        pd.DataFrame: Filtered dataframe with valid rows only.
+    """
+    df = df_issues.copy()
+
+    # Coerce to expected types
+    df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
+    df['resolved_at'] = pd.to_datetime(df['resolved_at'], errors='coerce')
+
+    # Use pandas string dtype to preserve missing values as <NA>
+    df['issue_id'] = df['issue_id'].astype('string')
+    df['issue_type'] = df['issue_type'].astype('string')
+    df['status'] = df['status'].astype('string')
+    df['priority'] = df['priority'].astype('string')
+
+    # Assignee fields are optional, but normalize dtype
+    df['assignee_id'] = df['assignee_id'].astype('string')
+    df['assignee_name'] = df['assignee_name'].astype('string')
+    df['assignee_email'] = df['assignee_email'].astype('string')
+
+    # Validation rules
+    required_mask = (
+        df['issue_id'].notna() &
+        df['created_at'].notna() &
+        df['priority'].notna()
+    )
+
+    allowed_priorities = {'Critical', 'High', 'Medium', 'Low'}
+    required_mask &= df['priority'].isin(allowed_priorities)
+
+    rejected = df[~required_mask]
+    if not rejected.empty:
+        logger.warning(f"Rejecting {len(rejected)} rows with invalid types/values")
+        os.makedirs(os.path.dirname("data/silver/rejected_rows.csv"), exist_ok=True)
+        rejected.to_csv("data/silver/rejected_rows.csv", index=False)
+
+    return df[required_mask].reset_index(drop=True)
+
+
 def transform_silver_layer(df_issues):
     """
     Apply all silver layer transformations and calculations.
@@ -173,6 +244,10 @@ def transform_silver_layer(df_issues):
     Returns:
         pd.DataFrame: Transformed dataframe ready for gold layer.
     """
+
+    # Validate types and filter invalid rows
+    df_issues = validate_and_filter_types(df_issues)
+
     # Calculate resolution hours
     df_issues = calculate_resolution_hours(df_issues)
 

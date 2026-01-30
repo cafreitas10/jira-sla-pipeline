@@ -8,6 +8,7 @@ business analytics reports for SLA compliance analysis.
 import os
 import pandas as pd
 import logging
+from sla_calculation import add_resolution_business_hours, attach_sla_compliance, filter_completed_issues
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,7 +39,7 @@ def read_silver_issues(silver_path):
 
 def build_gold_sla_issues(df_issues):
     """
-    Build SLA compliance report for individual issues.
+    Build SLA compliance report for individual issues (includes SLA business-hours).
 
     Args:
         df_issues (pd.DataFrame): Silver layer issues dataframe.
@@ -47,7 +48,11 @@ def build_gold_sla_issues(df_issues):
         pd.DataFrame: Individual issue SLA compliance report.
     """
     try:
-        df_gold = df_issues[[
+        # Add business-hours resolution and SLA compliance
+        df = add_resolution_business_hours(df_issues)
+        df = attach_sla_compliance(df)
+
+        df_gold = df[[
             'issue_id',
             'issue_type',
             'status',
@@ -55,20 +60,68 @@ def build_gold_sla_issues(df_issues):
             'assignee_name',
             'created_at',
             'resolved_at',
-            'resolution_hours',
-            'sla_expected_hours'
+            'resolution_business_hours',
+            'sla_expected_hours',
+            'is_sla_met'
         ]].copy()
 
-        # Check SLA compliance (boolean column with is_ prefix)
-        df_gold['is_sla_met'] = (
-            df_gold['resolution_hours'] <= df_gold['sla_expected_hours']
-        )
-
-        logger.info(f"Built {df_gold.shape[0]} SLA records")
+        logger.info(f"Built {df_gold.shape[0]} SLA records (with business-hours)")
         return df_gold
 
     except Exception as error:
         logger.error(f"Failed to build SLA issues: {error}")
+        return pd.DataFrame()
+
+
+def build_gold_sla_parquet(df_issues, output_path="data/gold/SLA_by_Issue.parquet"):
+    """
+    Build and save SLA by Issue as a Parquet file containing only completed issues.
+
+    The final table contains the following fields at minimum:
+    - issue_id
+    - issue_type
+    - assignee_name
+    - priority
+    - created_at
+    - resolved_at
+    - resolution_business_hours
+    - sla_expected_hours
+    - is_sla_met
+
+    Only issues with status 'Done' or 'Resolved' are included.
+
+    Returns:
+        pd.DataFrame: The saved dataframe (or empty DataFrame on failure)
+    """
+    try:
+        df_completed = filter_completed_issues(df_issues)
+
+        if df_completed.empty:
+            logger.warning("No completed issues to write SLA_by_Issue parquet")
+            return pd.DataFrame()
+
+        df_completed = add_resolution_business_hours(df_completed)
+        df_completed = attach_sla_compliance(df_completed)
+
+        df_final = df_completed[[
+            'issue_id',
+            'issue_type',
+            'assignee_name',
+            'priority',
+            'created_at',
+            'resolved_at',
+            'resolution_business_hours',
+            'sla_expected_hours',
+            'is_sla_met'
+        ]].copy()
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        df_final.to_parquet(output_path, index=False)
+        logger.info(f"Saved SLA_by_Issue parquet: {output_path}")
+        return df_final
+
+    except Exception as error:
+        logger.error(f"Failed to build SLA_by_Issue parquet: {error}")
         return pd.DataFrame()
 
 
@@ -200,9 +253,12 @@ def main():
         logger.error("No data to build gold layer")
         return False
 
-    # Build SLA issues report
+    # Build SLA issues report (CSV; includes SLA business-hours)
     df_sla_issues = build_gold_sla_issues(df_issues)
     save_gold_layer(df_sla_issues, "data/gold/gold_sla_issues.csv")
+
+    # Also build SLA by Issue as Parquet (only completed issues)
+    df_sla_parquet = build_gold_sla_parquet(df_issues, "data/gold/SLA_by_Issue.parquet")
 
     # Build SLA by analyst report
     df_sla_analyst = build_gold_sla_by_analyst(df_issues)

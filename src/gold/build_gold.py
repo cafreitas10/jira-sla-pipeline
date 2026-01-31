@@ -215,28 +215,6 @@ def build_gold_sla_by_issue_type(df_issues):
         return pd.DataFrame()
 
 
-def save_gold_layer(df_gold, output_path):
-    """
-    Save gold layer report to CSV format.
-
-    Args:
-        df_gold (pd.DataFrame): Gold layer dataframe.
-        output_path (str): Path to save CSV file.
-
-    Returns:
-        bool: True if successful, False otherwise.
-    """
-    try:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        df_gold.to_csv(output_path, index=False)
-        logger.info(f"Gold layer saved: {output_path}")
-        return True
-
-    except Exception as error:
-        logger.error(f"Failed to save gold layer: {error}")
-        return False
-
-
 def main():
     """
     Main pipeline to build the two required gold CSV reports from the

@@ -239,10 +239,11 @@ def save_gold_layer(df_gold, output_path):
 
 def main():
     """
-    Main pipeline to build all gold layer reports.
+    Main pipeline to build the two required gold CSV reports from the
+    intermediate `SLA_by_Issue.parquet` file.
 
     Returns:
-        bool: True if all reports created successfully, False otherwise.
+        bool: True if reports created successfully, False otherwise.
     """
     silver_path = "data/silver/silver_issues.parquet"
 
@@ -253,20 +254,46 @@ def main():
         logger.error("No data to build gold layer")
         return False
 
-    # Build SLA issues report (CSV; includes SLA business-hours)
-    df_sla_issues = build_gold_sla_issues(df_issues)
-    save_gold_layer(df_sla_issues, "data/gold/gold_sla_issues.csv")
-
-    # Also build SLA by Issue as Parquet (only completed issues)
+    # Build SLA by Issue as Parquet (only completed issues)
     df_sla_parquet = build_gold_sla_parquet(df_issues, "data/gold/SLA_by_Issue.parquet")
 
-    # Build SLA by analyst report
-    df_sla_analyst = build_gold_sla_by_analyst(df_issues)
-    save_gold_layer(df_sla_analyst, "data/gold/gold_sla_by_analyst.csv")
+    if df_sla_parquet.empty:
+        logger.warning("No completed issues to build average SLA reports")
+        return False
 
-    # Build SLA by issue type report
-    df_sla_type = build_gold_sla_by_issue_type(df_issues)
-    save_gold_layer(df_sla_type, "data/gold/gold_sla_by_issue_type.csv")
+    # 1) Average SLA by Analyst (includes summed resolution_hours)
+    df_analyst = (
+        df_sla_parquet.groupby('assignee_name').agg(
+            issue_count=('issue_id', 'count'),
+            resolution_hours=('resolution_business_hours', 'sum'),
+            sla_avg_hours=('resolution_business_hours', 'mean')
+        )
+        .reset_index()
+    )
+    df_analyst['SLA médio (em horas)'] = df_analyst['sla_avg_hours'].round(2)
+    df_analyst['resolution_hours'] = df_analyst['resolution_hours'].round(2)
+    df_analyst = df_analyst[['assignee_name', 'issue_count', 'resolution_hours', 'SLA médio (em horas)']]
+    df_analyst.columns = ['Analista', 'Quantidade de chamados', 'resolution_hours', 'SLA médio (em horas)']
+
+    os.makedirs(os.path.dirname("data/gold/average_sla_by_analist.csv"), exist_ok=True)
+    df_analyst.to_csv("data/gold/average_sla_by_analist.csv", index=False)
+
+    # 2) Average SLA by Issue Type (includes summed resolution_hours)
+    df_issue_type = (
+        df_sla_parquet.groupby('issue_type').agg(
+            issue_count=('issue_id', 'count'),
+            resolution_hours=('resolution_business_hours', 'sum'),
+            sla_avg_hours=('resolution_business_hours', 'mean')
+        )
+        .reset_index()
+    )
+    df_issue_type['SLA médio (em horas)'] = df_issue_type['sla_avg_hours'].round(2)
+    df_issue_type['resolution_hours'] = df_issue_type['resolution_hours'].round(2)
+
+    df_issue_type = df_issue_type[['issue_type', 'issue_count', 'resolution_hours', 'SLA médio (em horas)']]
+    df_issue_type.columns = ['Tipo do chamado', 'Quantidade de chamados', 'resolution_hours', 'SLA médio (em horas)']
+
+    df_issue_type.to_csv("data/gold/average_sla_by_issue_type.csv", index=False)
 
     logger.info("Gold layer pipeline completed successfully")
     return True

@@ -8,7 +8,7 @@
 - **Bronze Layer** (`src/bronze/ingest_bronze.py`): Raw data ingestion from Azure Blob Storage via Service Principal authentication
 - **Silver Layer** (`src/silver/transform_silver.py`): JSON parsing, nested structure flattening, SLA metric calculation
 - **Gold Layer** (`src/gold/build_gold.py`): Aggregated analytics reports for compliance analysis
-- **Orchestrator** (`src/sla_calculation.py`): Sequential pipeline execution with early-exit on stage failure
+- **Orchestrator** (`src/run_full_pipeline.py`): Sequential pipeline execution with early-exit on stage failure
 
 ### Data Flow
 ```
@@ -44,7 +44,7 @@ Azure Blob Storage → Bronze (raw JSON) → Silver (Parquet) → Gold (CSV repo
 
 ### Running the Pipeline
 ```bash
-python src/sla_calculation.py  # Runs all three stages sequentially
+python src/run_full_pipeline.py  # Runs all three stages sequentially
 ```
 
 ### Key Dependencies
@@ -69,7 +69,7 @@ Edit `src/bronze/ingest_bronze.py` - change `account_url`, `container_name`, `bl
 
 ### Debugging Pipeline Failures
 - Check logs: Each stage logs entry, file operations, row counts
-- Pipeline exits early: First failing stage stops execution in `src/sla_calculation.py`
+- Pipeline exits early: First failing stage stops execution in `src/run_full_pipeline.py`
 - Verify `.env` file for Azure credentials (all three required)
 
 ## Important Details

@@ -26,10 +26,12 @@ to process JIRA issues data, calculate SLA compliance metrics, and generate anal
 ### Gold Layer
 - **Purpose**: Build analytical reports and aggregations
 - **Input**: `data/silver/silver_issues.parquet`
-- **Outputs**:
-  - `data/gold/gold_sla_issues.csv` - Individual issue SLA compliance
-  - `data/gold/gold_sla_by_analyst.csv` - Aggregated by analyst
-  - `data/gold/gold_sla_by_issue_type.csv` - Aggregated by issue type
+- **Intermediate**: `data/gold/SLA_by_Issue.parquet` (completed issues with business-hour SLA)
+
+- **Outputs** (CSV):
+  - `data/gold/average_sla_by_analist.csv` — Average SLA by analyst (fields: `Analista`, `Quantidade de chamados`, `resolution_hours`, `SLA médio (em horas)`) — Note: `resolution_hours` is the SUM of `resolution_business_hours` across the group.
+
+  - `data/gold/average_sla_by_issue_type.csv` — Average SLA by issue type (fields: `Tipo do chamado`, `Quantidade de chamados`, `resolution_hours`, `SLA médio (em horas)`) — Note: `resolution_hours` is the SUM of `resolution_business_hours` across the group.
 
 ## 🚀 Getting Started
 
@@ -74,7 +76,7 @@ to process JIRA issues data, calculate SLA compliance metrics, and generate anal
 ### Running the Pipeline
 
 ```bash
-python src/sla_calculation.py
+python src/run_full_pipeline.py
 ```
 
 Pipeline will execute all three stages:

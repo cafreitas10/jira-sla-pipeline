@@ -1,0 +1,11 @@
+issue_id,issue_type,status,priority,assignee_id,assignee_name,assignee_email,created_at,resolved_at
+JIRA-0991,Story,Done,High,u004,Francinne,francinne@fasttrack.com,,
+JIRA-0992,Story,Open,Low,u005,Adyna,adyna@fasttrack.com,,
+JIRA-0993,Bug,Resolved,Low,u002,Gionni Lucio,gionni.lucio@fasttrack.com,,
+JIRA-0994,Task,Done,High,u004,Francinne,francinne@fasttrack.com,,
+JIRA-0995,Bug,Resolved,Low,u001,Matheus Malta,matheus.malta@fasttrack.com,,
+JIRA-0996,Task,Done,Low,u004,Francinne,francinne@fasttrack.com,,
+JIRA-0997,Task,Open,Medium,u003,Guilherme Francisco,guilherme@fasttrack.com,,
+JIRA-0998,Task,Resolved,Low,u001,Matheus Malta,matheus.malta@fasttrack.com,,
+JIRA-0999,Task,Done,High,u005,Adyna,adyna@fasttrack.com,,
+JIRA-1000,Bug,Open,Low,u004,Francinne,francinne@fasttrack.com,,

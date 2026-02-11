@@ -1,19 +1,14 @@
-venv/
-.env
-__pycache__/
-*.pyc
-data/
-.vscode/
-.pytest_cache/
-.mypy_cache/
-.DS_Store
-venv.bak/
-env/
-/.idea/
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+# Virtual Environment
+venv/
+.venv/
+venv.bak/
+ENV/
+env/
 
 # Python
 __pycache__/
@@ -36,11 +31,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Virtual Environment
-venv/
-ENV/
-env/
 
 # IDE
 .vscode/
